@@ -1,7 +1,8 @@
 {
   "name": "@cyanheads/osv-advisory-mcp-server",
   "version": "0.1.0",
-  "description": "",
+  "description": "Query OSV.dev for package vulnerabilities, batch-audit dependency lists, and fetch full advisory records via MCP. STDIO or Streamable HTTP.",
+  "mcpName": "io.github.cyanheads/osv-advisory-mcp-server",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -39,10 +40,36 @@
     "start:http": "MCP_TRANSPORT_TYPE=http bun ./dist/index.js",
     "publish-mcp": "mcp-publisher login github -token \"$(security find-generic-password -a \"$USER\" -s mcp-publisher-github-pat -w)\" && mcp-publisher publish"
   },
-  "keywords": ["mcp", "mcp-server", "model-context-protocol"],
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "typescript",
+    "bun",
+    "stdio",
+    "streamable-http",
+    "osv",
+    "osv-dev",
+    "vulnerability",
+    "advisory",
+    "security",
+    "cve",
+    "sbom",
+    "dependency-audit",
+    "devsecops"
+  ],
+  "author": {
+    "name": "Casey Hand",
+    "email": "casey@caseyjhand.com",
+    "url": "https://caseyjhand.com"
+  },
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "https://github.com/cyanheads/osv-advisory-mcp-server"
+  },
+  "homepage": "https://github.com/cyanheads/osv-advisory-mcp-server#readme",
+  "bugs": {
+    "url": "https://github.com/cyanheads/osv-advisory-mcp-server/issues"
   },
   "license": "Apache-2.0",
   "engines": {

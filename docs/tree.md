@@ -1,9 +1,10 @@
 # osv-advisory-mcp-server - Directory Structure
 
-Generated on: 2026-05-30 09:59:37
+Generated on: 2026-05-30 13:09:56
 
 ```text
 osv-advisory-mcp-server/
+├── .claude/
 ├── .claude-plugin/
 │   └── plugin.json
 ├── .codex-plugin/
@@ -18,8 +19,10 @@ osv-advisory-mcp-server/
 │   ├── extensions.json
 │   └── settings.json
 ├── changelog/
+│   ├── 0.1.x/
 │   └── template.md
 ├── docs/
+│   ├── design.md
 │   └── idea.md
 ├── scripts/
 │   ├── build-changelog.ts
@@ -109,23 +112,32 @@ osv-advisory-mcp-server/
 │   ├── mcp-server/
 │   │   ├── prompts/
 │   │   │   └── definitions/
-│   │   │       └── echo.prompt.ts
 │   │   ├── resources/
 │   │   │   └── definitions/
-│   │   │       ├── echo-app-ui.app-resource.ts
-│   │   │       └── echo.resource.ts
 │   │   └── tools/
 │   │       └── definitions/
-│   │           ├── echo-app.app-tool.ts
-│   │           └── echo.tool.ts
+│   │           ├── index.ts
+│   │           ├── osv-get-vulnerability.tool.ts
+│   │           ├── osv-list-ecosystems.tool.ts
+│   │           ├── osv-query-batch.tool.ts
+│   │           └── osv-query.tool.ts
+│   ├── services/
+│   │   ├── canvas/
+│   │   │   └── canvas-accessor.ts
+│   │   └── osv-api/
+│   │       ├── osv-api-service.ts
+│   │       └── types.ts
 │   └── index.ts
 ├── tests/
 │   ├── prompts/
-│   │   └── echo.prompt.test.ts
 │   ├── resources/
-│   │   └── echo.resource.test.ts
+│   ├── services/
+│   │   └── osv-api-service.test.ts
 │   └── tools/
-│       └── echo.tool.test.ts
+│       ├── osv-get-vulnerability.tool.test.ts
+│       ├── osv-list-ecosystems.tool.test.ts
+│       ├── osv-query-batch.tool.test.ts
+│       └── osv-query.tool.test.ts
 ├── .dockerignore
 ├── .env.example
 ├── .gitignore
@@ -133,11 +145,14 @@ osv-advisory-mcp-server/
 ├── AGENTS.md
 ├── biome.json
 ├── bun.lock
+├── CHANGELOG.md
 ├── CLAUDE.md
 ├── devcheck.config.json
 ├── Dockerfile
+├── LICENSE
 ├── manifest.json
 ├── package.json
+├── README.md
 ├── server.json
 ├── tsconfig.build.json
 ├── tsconfig.json

@@ -11,19 +11,6 @@
 
 ---
 
-## First Session
-
-This project was just scaffolded with `bunx @cyanheads/mcp-ts-core init`. The framework, skills, and example definitions are in place — the domain isn't. The user's first messages will set direction; wait for them before proceeding.
-
-> **Remove this section** from CLAUDE.md / AGENTS.md after completing these steps. The skills and conventions below remain — this block is one-time onboarding only.
-
-1. **Get your bearings.** Take stock of the project tree, the skills in `skills/`, and the tools/MCP servers available. Light tool use is fine for context-building — you're mapping the territory, not committing yet.
-2. **Read the framework docs** — `node_modules/@cyanheads/mcp-ts-core/CLAUDE.md` (builders, Context, errors, exports, conventions)
-3. **Run the `setup` skill** — read `skills/setup/SKILL.md` and follow its checklist (project orientation, agent protocol file selection, echo definition cleanup, skill sync)
-4. **Design the server** — read `skills/design-mcp-server/SKILL.md` and work through it with the user to map the domain into tools, resources, and services before scaffolding
-
----
-
 ## What's Next?
 
 When the user asks what's next or needs direction, suggest options based on the current project state. Common next steps:
@@ -61,25 +48,18 @@ Tailor suggestions to what's actually missing or stale — don't recite the full
 ```ts
 import { tool, z } from '@cyanheads/mcp-ts-core';
 
-export const searchItems = tool('search_items', {
-  description: 'Search inventory items by query.',
-  annotations: { readOnlyHint: true },
-  input: z.object({
-    query: z.string().describe('Search terms'),
-    limit: z.number().default(10).describe('Max results'),
-  }),
+export const osvListEcosystems = tool('osv_list_ecosystems', {
+  description: 'Return the list of supported ecosystem identifier strings.',
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  input: z.object({}),
   output: z.object({
-    items: z.array(z.object({
-      id: z.string().describe('Item ID'),
-      name: z.string().describe('Item name'),
-    })).describe('Matching items'),
+    ecosystems: z.array(z.string()).describe('Supported ecosystem identifier strings.'),
+    note: z.string().describe('Advisory note about list currency and canonical source.'),
   }),
-  auth: ['inventory:read'],
 
-  async handler(input, ctx) {
-    const items = await findItems(input.query, input.limit);
-    ctx.log.info('Search completed', { query: input.query, count: items.length });
-    return { items };
+  async handler(_input, ctx) {
+    ctx.log.info('Returning static ecosystem list');
+    return { ecosystems: ECOSYSTEMS, note: 'Static list — may lag newly added ecosystems.' };
   },
 
   // format() populates content[] — the markdown twin of structuredContent.
@@ -88,7 +68,7 @@ export const searchItems = tool('search_items', {
   // Enforced at lint time: every field in `output` must appear in the rendered text.
   format: (result) => [{
     type: 'text',
-    text: result.items.map(i => `**${i.id}**: ${i.name}`).join('\n'),
+    text: result.ecosystems.join(', ') + '\n\n' + result.note,
   }],
 });
 ```
@@ -99,14 +79,13 @@ export const searchItems = tool('search_items', {
 import { resource, z } from '@cyanheads/mcp-ts-core';
 import { notFound } from '@cyanheads/mcp-ts-core/errors';
 
-export const itemData = resource('inventory://{itemId}', {
-  description: 'Fetch an inventory item by ID.',
-  params: z.object({ itemId: z.string().describe('Item identifier') }),
-  auth: ['inventory:read'],
+export const osvVulnResource = resource('osv://vulns/{id}', {
+  description: 'Fetch an OSV vulnerability record by ID.',
+  params: z.object({ id: z.string().describe('OSV vulnerability ID (e.g. GHSA-29mw-wpgm-hmr9)') }),
   async handler(params, ctx) {
-    const item = await ctx.state.get(`item:${params.itemId}`);
-    if (!item) throw notFound(`Item ${params.itemId} not found`, { itemId: params.itemId });
-    return item;
+    const vuln = await ctx.state.get(`osv:vuln:${params.id}`);
+    if (!vuln) throw notFound(`Vulnerability ${params.id} not found`, { id: params.id });
+    return vuln;
   },
 });
 ```
@@ -116,14 +95,14 @@ export const itemData = resource('inventory://{itemId}', {
 ```ts
 import { prompt, z } from '@cyanheads/mcp-ts-core';
 
-export const reviewCode = prompt('review_code', {
-  description: 'Review code for issues and best practices.',
+export const auditDeps = prompt('audit_deps', {
+  description: 'Generate a structured dependency audit plan for a given package list.',
   args: z.object({
-    code: z.string().describe('Code to review'),
-    language: z.string().optional().describe('Programming language'),
+    ecosystem: z.string().describe('Target ecosystem (e.g. "npm", "PyPI")'),
+    packageList: z.string().describe('Newline-separated name@version pairs'),
   }),
   generate: (args) => [
-    { role: 'user', content: { type: 'text', text: `Review this ${args.language ?? ''} code:\n${args.code}` } },
+    { role: 'user', content: { type: 'text', text: `Audit these ${args.ecosystem} dependencies for known vulnerabilities:\n${args.packageList}` } },
   ],
 });
 ```
@@ -136,21 +115,21 @@ import { z } from '@cyanheads/mcp-ts-core';
 import { parseEnvConfig } from '@cyanheads/mcp-ts-core/config';
 
 const ServerConfigSchema = z.object({
-  apiKey: z.string().describe('External API key'),
-  maxResults: z.coerce.number().default(100),
+  requestTimeoutMs: z.coerce.number().default(10000).describe('HTTP request timeout for OSV.dev API calls (ms).'),
 });
 
 let _config: z.infer<typeof ServerConfigSchema> | undefined;
 export function getServerConfig() {
   _config ??= parseEnvConfig(ServerConfigSchema, {
-    apiKey: 'MY_API_KEY',
-    maxResults: 'MY_MAX_RESULTS',
+    requestTimeoutMs: 'OSV_REQUEST_TIMEOUT_MS',
   });
   return _config;
 }
 ```
 
-`parseEnvConfig` maps Zod schema paths → env var names so errors name the variable (`MY_API_KEY`) not the path (`apiKey`). Throws `ConfigurationError`, which the framework prints as a clean startup banner.
+`parseEnvConfig` maps Zod schema paths → env var names so errors name the variable (`OSV_REQUEST_TIMEOUT_MS`) not the path (`requestTimeoutMs`). Throws `ConfigurationError`, which the framework prints as a clean startup banner.
+
+> **This server has no required env vars.** OSV.dev is fully public and keyless. `OSV_REQUEST_TIMEOUT_MS` is optional (default: 10000 ms).
 
 ### Server instructions
 
@@ -224,19 +203,19 @@ See framework CLAUDE.md and the `api-errors` skill for the full auto-classificat
 ```text
 src/
   index.ts                              # createApp() entry point
-  config/
-    server-config.ts                    # Server-specific env vars (Zod schema)
   services/
-    [domain]/
-      [domain]-service.ts               # Domain service (init/accessor pattern)
-      types.ts                          # Domain types
+    osv-api/
+      osv-api-service.ts                # OSV.dev REST API service (fetch, retry, normalization)
+      types.ts                          # Domain types (OsvVuln, OsvAffected, etc.)
+    canvas/
+      canvas-accessor.ts                # DataCanvas accessor for osv_query_batch spillover
   mcp-server/
     tools/definitions/
-      [tool-name].tool.ts               # Tool definitions
-    resources/definitions/
-      [resource-name].resource.ts       # Resource definitions
-    prompts/definitions/
-      [prompt-name].prompt.ts           # Prompt definitions
+      osv-query.tool.ts                 # osv_query — single package vulnerability lookup
+      osv-query-batch.tool.ts           # osv_query_batch — batch audit with DataCanvas spillover
+      osv-get-vulnerability.tool.ts     # osv_get_vulnerability — full advisory record fetch
+      osv-list-ecosystems.tool.ts       # osv_list_ecosystems — static ecosystem list
+      index.ts                          # Tool barrel export
 ```
 
 ---

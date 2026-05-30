@@ -29,9 +29,9 @@ await createApp({
     '- No API key required. No rate limit published — prefer batch queries over repeated single queries.',
 
   setup(core) {
-    const timeoutMs = process.env.OSV_REQUEST_TIMEOUT_MS
-      ? Number(process.env.OSV_REQUEST_TIMEOUT_MS)
-      : undefined;
+    const rawTimeout = process.env.OSV_REQUEST_TIMEOUT_MS;
+    const parsed = rawTimeout ? Number(rawTimeout) : NaN;
+    const timeoutMs = !Number.isNaN(parsed) && parsed > 0 ? parsed : undefined;
     initOsvApiService(timeoutMs);
     setCanvas(core.canvas);
   },

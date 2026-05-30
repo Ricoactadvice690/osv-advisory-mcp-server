@@ -159,14 +159,6 @@ export const osvQueryBatch = tool('osv_query_batch', {
   ],
 
   async handler(input, ctx) {
-    // batch_too_large is enforced by Zod .max(1000), but we add a belt check for clarity
-    if (input.packages.length > 1000) {
-      throw ctx.fail(
-        'batch_too_large',
-        `Batch of ${input.packages.length} packages exceeds the 1000-entry limit.`,
-      );
-    }
-
     // Pre-flight ecosystem validation using the static list
     const ecosystemSet = new Set(SUPPORTED_ECOSYSTEMS);
     const invalidEcosystems = input.packages

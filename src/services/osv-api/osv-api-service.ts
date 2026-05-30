@@ -14,8 +14,6 @@ import type {
   OsvSeverityEntry,
   OsvVulnerability,
   RawOsvAffected,
-  RawOsvBatchResultEntry,
-  RawOsvQueryBatchResponse,
   RawOsvQueryResponse,
   RawOsvVulnerability,
 } from './types.js';
@@ -431,12 +429,4 @@ export function getOsvApiService(): OsvApiService {
   return _service;
 }
 
-export type {
-  BatchVulnBrief,
-  OsvAffectedRange,
-  OsvVulnerability,
-  RawOsvBatchResultEntry,
-  RawOsvQueryBatchResponse,
-};
-// Re-export normalization helpers for use in tools
-export { normalizeVuln, toBrief };
+export type { BatchVulnBrief, OsvAffectedRange, OsvVulnerability };

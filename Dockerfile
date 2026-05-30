@@ -38,7 +38,8 @@ ENV NODE_ENV=production
 
 # OCI image metadata (https://github.com/opencontainers/image-spec/blob/main/annotations.md)
 LABEL org.opencontainers.image.title="osv-advisory-mcp-server"
-LABEL org.opencontainers.image.description=""
+LABEL org.opencontainers.image.description="Query OSV.dev for package vulnerabilities, batch-audit dependency lists, and fetch full advisory records via MCP."
+LABEL org.opencontainers.image.source="https://github.com/cyanheads/osv-advisory-mcp-server"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 
 # Copy dependency manifests

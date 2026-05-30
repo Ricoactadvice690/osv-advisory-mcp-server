@@ -1,25 +1,25 @@
 {
-  "name": "osv-advisory-mcp-server",
+  "name": "@cyanheads/osv-advisory-mcp-server",
   "version": "0.1.0",
-  "description": "",
+  "description": "Query OSV.dev for package vulnerabilities, batch-audit dependency lists, and fetch full advisory records via MCP. STDIO or Streamable HTTP.",
   "author": {
-    "name": "",
-    "email": "",
-    "url": ""
+    "name": "Casey Hand",
+    "email": "casey@caseyjhand.com",
+    "url": "https://caseyjhand.com"
   },
-  "homepage": "",
-  "repository": "",
+  "homepage": "https://github.com/cyanheads/osv-advisory-mcp-server#readme",
+  "repository": "https://github.com/cyanheads/osv-advisory-mcp-server",
   "license": "Apache-2.0",
-  "keywords": ["mcp", "mcp-server", "model-context-protocol"],
+  "keywords": ["mcp", "mcp-server", "model-context-protocol", "osv", "vulnerability", "security", "sbom"],
   "mcpServers": "./.codex-plugin/mcp.json",
   "interface": {
-    "displayName": "osv-advisory-mcp-server",
-    "shortDescription": "",
+    "displayName": "@cyanheads/osv-advisory-mcp-server",
+    "shortDescription": "Query OSV.dev for package vulnerabilities, batch-audit dependency lists, and fetch full advisory records via MCP. STDIO or Streamable HTTP.",
     "longDescription": "",
-    "developerName": "",
-    "category": "",
+    "developerName": "Casey Hand",
+    "category": "security",
     "capabilities": ["Read"],
-    "websiteURL": "",
+    "websiteURL": "https://github.com/cyanheads/osv-advisory-mcp-server",
     "defaultPrompt": []
   }
 }

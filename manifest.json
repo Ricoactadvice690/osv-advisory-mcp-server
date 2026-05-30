@@ -2,8 +2,8 @@
   "manifest_version": "0.3",
   "name": "osv-advisory-mcp-server",
   "version": "0.1.0",
-  "description": "",
-  "author": { "name": "" },
+  "description": "Query OSV.dev for package vulnerabilities, batch-audit dependency lists, and fetch full advisory records via MCP.",
+  "author": { "name": "Casey Hand" },
   "server": {
     "type": "node",
     "entry_point": "dist/index.js",
