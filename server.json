@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.cyanheads/osv-advisory-mcp-server",
-  "description": "Package-ecosystem vulnerability lookups via Google's OSV.dev across 20+ ecosystems by package and version.",
+  "description": "Vulnerability lookups via OSV.dev across 20+ ecosystems by package and version.",
   "repository": {
     "url": "https://github.com/cyanheads/osv-advisory-mcp-server",
     "source": "github"
