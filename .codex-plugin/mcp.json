@@ -1,0 +1,9 @@
+{
+  "osv-advisory-mcp-server": {
+    "command": "npx",
+    "args": ["-y", "osv-advisory-mcp-server"],
+    "env": {
+      "MCP_TRANSPORT_TYPE": "stdio"
+    }
+  }
+}
