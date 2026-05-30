@@ -273,5 +273,57 @@ describe('OsvApiService', () => {
       expect(vuln.details).toBe('');
       expect(vuln.schemaVersion).toBe('');
     });
+
+    it('filters out affected entries with no package identity (CVE GIT-range-only records)', async () => {
+      // Live CVE records (e.g. CVE-2020-28500) have affected entries with no `package` field —
+      // only a GIT range. The normalization must skip these so `affected` and `affectedRanges`
+      // do not contain entries with empty packageName/ecosystem, which would produce useless
+      // output like `- \`\` ()` in the format text.
+      const cveStyleResponse = {
+        vulns: [
+          {
+            id: 'CVE-2020-28500',
+            summary: null, // CVE records often have no summary
+            details: 'Lodash versions prior to 4.17.21 are vulnerable.',
+            aliases: ['GHSA-29mw-wpgm-hmr9'],
+            published: '2021-02-15T11:15:12Z',
+            modified: '2026-04-10T04:25:46Z',
+            schema_version: '1.7.5',
+            severity: [{ type: 'CVSS_V3', score: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L' }],
+            // No database_specific — CVE record, no GHSA severity label
+            affected: [
+              {
+                // No `package` field — GIT-range-only entry (real CVE shape)
+                ranges: [
+                  {
+                    type: 'GIT',
+                    events: [{ introduced: '0' }, { fixed: 'c6e281b' }],
+                  },
+                ],
+              },
+            ],
+            references: [],
+          },
+        ],
+      };
+
+      vi.stubGlobal('fetch', mockFetch([{ status: 200, body: cveStyleResponse }]));
+      const ctx = createMockContext();
+      const result = await service.queryPackage('lodash', 'npm', '4.17.20', ctx);
+
+      expect(result.invalid).toBe(false);
+      if (result.invalid) return;
+
+      const vuln = result.vulns[0]!;
+      expect(vuln.id).toBe('CVE-2020-28500');
+      // affected and affectedRanges must be empty — no packageName/ecosystem to surface
+      expect(vuln.affected).toHaveLength(0);
+      expect(vuln.affectedRanges).toHaveLength(0);
+      expect(vuln.fixedVersions).toHaveLength(0);
+      // summary is null upstream → normalized to empty string
+      expect(vuln.summary).toBe('');
+      // severityLabel null because no database_specific.severity
+      expect(vuln.severityLabel).toBeNull();
+    });
   });
 });

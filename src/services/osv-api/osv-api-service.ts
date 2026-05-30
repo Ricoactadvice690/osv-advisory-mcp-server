@@ -35,12 +35,16 @@ const BASE_DELAY_MS = 500;
 // Normalization helpers
 // ---------------------------------------------------------------------------
 
-/** Extract all flat affected ranges from an affected array. */
+/** Extract all flat affected ranges from an affected array.
+ * Skips entries that lack package metadata (e.g. GIT-range-only CVE records). */
 function extractAffectedRanges(affected: RawOsvAffected[] | undefined): OsvAffectedRange[] {
   const out: OsvAffectedRange[] = [];
   for (const entry of affected ?? []) {
     const pkgName = entry.package?.name ?? '';
     const ecosystem = entry.package?.ecosystem ?? '';
+    // Skip entries with no package identity — these are GIT-range-only CVE records
+    // that carry no useful package/ecosystem information for dependency audits.
+    if (!pkgName && !ecosystem) continue;
     for (const range of entry.ranges ?? []) {
       const rangeType = range.type ?? '';
       let introduced: string | undefined;
@@ -89,25 +93,32 @@ function normalizeVuln(raw: RawOsvVulnerability): OsvVulnerability {
     score: s.score,
   }));
 
-  const affected = (raw.affected ?? []).map((a) => ({
-    packageName: a.package?.name ?? '',
-    ecosystem: a.package?.ecosystem ?? '',
-    ...(a.package?.purl ? { purl: a.package.purl } : {}),
-    ranges: (a.ranges ?? []).map((r) => {
-      const out: {
-        rangeType: string;
-        introduced?: string;
-        fixed?: string;
-        lastAffected?: string;
-      } = { rangeType: r.type ?? '' };
-      for (const evt of r.events ?? []) {
-        if (evt.introduced !== undefined) out.introduced = evt.introduced;
-        if (evt.fixed !== undefined) out.fixed = evt.fixed;
-        if (evt.last_affected !== undefined) out.lastAffected = evt.last_affected;
-      }
-      return out;
-    }),
-  }));
+  const affected = (raw.affected ?? [])
+    .filter((a) => {
+      // Skip GIT-range-only entries that have no package identity (CVE records often have these).
+      const name = a.package?.name ?? '';
+      const eco = a.package?.ecosystem ?? '';
+      return name !== '' || eco !== '';
+    })
+    .map((a) => ({
+      packageName: a.package?.name ?? '',
+      ecosystem: a.package?.ecosystem ?? '',
+      ...(a.package?.purl ? { purl: a.package.purl } : {}),
+      ranges: (a.ranges ?? []).map((r) => {
+        const out: {
+          rangeType: string;
+          introduced?: string;
+          fixed?: string;
+          lastAffected?: string;
+        } = { rangeType: r.type ?? '' };
+        for (const evt of r.events ?? []) {
+          if (evt.introduced !== undefined) out.introduced = evt.introduced;
+          if (evt.fixed !== undefined) out.fixed = evt.fixed;
+          if (evt.last_affected !== undefined) out.lastAffected = evt.last_affected;
+        }
+        return out;
+      }),
+    }));
 
   const references = (raw.references ?? []).map((ref) => ({
     type: ref.type ?? '',
