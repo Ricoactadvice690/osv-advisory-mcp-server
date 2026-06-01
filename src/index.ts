@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * @fileoverview osv-advisory-mcp-server MCP server entry point.
- * Registers OSV tools, initializes the OSV API service and optional DataCanvas.
+ * Registers OSV tools and initializes the OSV API service.
  * @module index
  */
 
@@ -12,7 +12,6 @@ import {
   osvQuery,
   osvQueryBatch,
 } from './mcp-server/tools/definitions/index.js';
-import { setCanvas } from './services/canvas/canvas-accessor.js';
 import { initOsvApiService } from './services/osv-api/osv-api-service.js';
 
 await createApp({
@@ -28,11 +27,10 @@ await createApp({
     '- OSV results include aliases (CVE IDs) — chain these to nist-nvd-mcp-server for CVSS scoring, EPSS, and CISA KEV status.\n' +
     '- No API key required. No rate limit published — prefer batch queries over repeated single queries.',
 
-  setup(core) {
+  setup() {
     const rawTimeout = process.env.OSV_REQUEST_TIMEOUT_MS;
     const parsed = rawTimeout ? Number(rawTimeout) : NaN;
     const timeoutMs = !Number.isNaN(parsed) && parsed > 0 ? parsed : undefined;
     initOsvApiService(timeoutMs);
-    setCanvas(core.canvas);
   },
 });

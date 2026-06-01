@@ -1,7 +1,7 @@
 # Developer Protocol
 
 **Server:** osv-advisory-mcp-server
-**Version:** 0.1.1
+**Version:** 0.1.2
 **Framework:** [@cyanheads/mcp-ts-core](https://www.npmjs.com/package/@cyanheads/mcp-ts-core) `^0.9.16`
 **Engines:** Bun ≥1.3.0, Node ≥24.0.0
 **MCP SDK:** `@modelcontextprotocol/sdk` ^1.29.0
@@ -207,12 +207,10 @@ src/
     osv-api/
       osv-api-service.ts                # OSV.dev REST API service (fetch, retry, normalization)
       types.ts                          # Domain types (OsvVuln, OsvAffected, etc.)
-    canvas/
-      canvas-accessor.ts                # DataCanvas accessor for osv_query_batch spillover
   mcp-server/
     tools/definitions/
       osv-query.tool.ts                 # osv_query — single package vulnerability lookup
-      osv-query-batch.tool.ts           # osv_query_batch — batch audit with DataCanvas spillover
+      osv-query-batch.tool.ts           # osv_query_batch — batch dependency audit
       osv-get-vulnerability.tool.ts     # osv_get_vulnerability — full advisory record fetch
       osv-list-ecosystems.tool.ts       # osv_list_ecosystems — static ecosystem list
       index.ts                          # Tool barrel export

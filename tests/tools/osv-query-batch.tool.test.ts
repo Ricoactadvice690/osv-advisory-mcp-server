@@ -6,7 +6,6 @@
 import { createMockContext } from '@cyanheads/mcp-ts-core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { osvQueryBatch } from '@/mcp-server/tools/definitions/osv-query-batch.tool.js';
-import * as canvasModule from '@/services/canvas/canvas-accessor.js';
 import * as osvApiModule from '@/services/osv-api/osv-api-service.js';
 
 /** Build a minimal batch result row. */
@@ -33,7 +32,6 @@ describe('osvQueryBatch', () => {
     vi.spyOn(osvApiModule, 'getOsvApiService').mockReturnValue(
       mockService as unknown as ReturnType<typeof osvApiModule.getOsvApiService>,
     );
-    vi.spyOn(canvasModule, 'getCanvas').mockReturnValue(undefined);
     mockService.queryBatch.mockReset();
   });
 
@@ -121,17 +119,6 @@ describe('osvQueryBatch', () => {
     });
     const result = await osvQueryBatch.handler(input, ctx);
     expect(result.summary.worstSeverity).toBeNull();
-  });
-
-  it('skips canvas when package count < 200 and no canvas_id', async () => {
-    mockService.queryBatch.mockResolvedValue([makeResult('lodash', 'npm', '4.17.1')]);
-
-    const ctx = createMockContext({ errors: osvQueryBatch.errors });
-    const input = osvQueryBatch.input.parse({
-      packages: [{ name: 'lodash', ecosystem: 'npm', version: '4.17.1' }],
-    });
-    const result = await osvQueryBatch.handler(input, ctx);
-    expect(result.canvas_id).toBeUndefined();
   });
 
   it('partial success: mix of vulnerable, clean, and per-package error', async () => {
@@ -225,68 +212,6 @@ describe('osvQueryBatch', () => {
     expect(result.summary.totalVulns).toBe(2);
   });
 
-  it('triggers DataCanvas spillover when package count reaches 200', async () => {
-    const packages = Array.from({ length: 200 }, (_, i) => ({
-      name: `pkg${i}`,
-      ecosystem: 'npm',
-      version: '1.0.0',
-    }));
-
-    // All clean — just need enough packages to cross the threshold
-    mockService.queryBatch.mockResolvedValue(
-      packages.map((p) => makeResult(p.name, p.ecosystem, p.version)),
-    );
-
-    const CANVAS_ID = 'canvas-abc123';
-    const mockRegisterTable = vi
-      .fn()
-      .mockResolvedValue({ rowCount: 200, tableName: 'osv_batch_results', columns: [] });
-    const mockInstance = { canvasId: CANVAS_ID, registerTable: mockRegisterTable };
-    const mockAcquire = vi.fn().mockResolvedValue(mockInstance);
-    vi.spyOn(canvasModule, 'getCanvas').mockReturnValue({
-      acquire: mockAcquire,
-    } as unknown as ReturnType<typeof canvasModule.getCanvas>);
-
-    const ctx = createMockContext({ errors: osvQueryBatch.errors });
-    const input = osvQueryBatch.input.parse({ packages });
-    const result = await osvQueryBatch.handler(input, ctx);
-
-    // Canvas was acquired and table was registered
-    expect(mockAcquire).toHaveBeenCalledOnce();
-    expect(mockRegisterTable).toHaveBeenCalledWith('osv_batch_results', expect.any(Array));
-    // Registered rows are one-per-package
-    const registeredRows = mockRegisterTable.mock.calls[0]![1] as unknown[];
-    expect(registeredRows).toHaveLength(200);
-    // canvas_id is returned
-    expect(result.canvas_id).toBe(CANVAS_ID);
-    expect(result.summary.totalPackages).toBe(200);
-  });
-
-  it('uses provided canvas_id when explicitly passed, even for small batches', async () => {
-    mockService.queryBatch.mockResolvedValue([makeResult('lodash', 'npm', '4.17.1')]);
-
-    const CANVAS_ID = 'existing-canvas';
-    const mockRegisterTable = vi
-      .fn()
-      .mockResolvedValue({ rowCount: 1, tableName: 'osv_batch_results', columns: [] });
-    const mockInstance = { canvasId: CANVAS_ID, registerTable: mockRegisterTable };
-    const mockAcquire = vi.fn().mockResolvedValue(mockInstance);
-    vi.spyOn(canvasModule, 'getCanvas').mockReturnValue({
-      acquire: mockAcquire,
-    } as unknown as ReturnType<typeof canvasModule.getCanvas>);
-
-    const ctx = createMockContext({ errors: osvQueryBatch.errors });
-    const input = osvQueryBatch.input.parse({
-      packages: [{ name: 'lodash', ecosystem: 'npm', version: '4.17.1' }],
-      canvas_id: CANVAS_ID,
-    });
-    const result = await osvQueryBatch.handler(input, ctx);
-
-    // Canvas is acquired with the provided ID
-    expect(mockAcquire).toHaveBeenCalledWith(CANVAS_ID, ctx);
-    expect(result.canvas_id).toBe(CANVAS_ID);
-  });
-
   it('rejects empty packages array at schema parse', () => {
     expect(() => osvQueryBatch.input.parse({ packages: [] })).toThrow();
   });
@@ -346,24 +271,5 @@ describe('osvQueryBatch', () => {
     expect(text).toContain('CVE-2020-28500');
     expect(text).toContain('4.17.21');
     expect(text).toContain('GHSA-29mw-wpgm-hmr9');
-  });
-
-  it('formats canvas_id in output when present', () => {
-    const output = {
-      results: [],
-      summary: {
-        totalPackages: 0,
-        vulnerableCount: 0,
-        cleanCount: 0,
-        errorCount: 0,
-        totalVulns: 0,
-        worstSeverity: null,
-      },
-      canvas_id: 'abc1234567',
-    };
-    const blocks = osvQueryBatch.format!(output);
-    const text = (blocks[0] as { text: string }).text;
-    expect(text).toContain('abc1234567');
-    expect(text).toContain('osv_batch_results');
   });
 });

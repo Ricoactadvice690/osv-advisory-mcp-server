@@ -1,18 +1,13 @@
 /**
  * @fileoverview Tool for batch vulnerability queries across multiple packages via OSV.dev.
  * Uses parallel per-package POST /v1/query for full records including CVE aliases.
- * Results >= 200 packages are spilled to DataCanvas for SQL/aggregation.
  * @module mcp-server/tools/definitions/osv-query-batch
  */
 
 import { tool, z } from '@cyanheads/mcp-ts-core';
 import { JsonRpcErrorCode } from '@cyanheads/mcp-ts-core/errors';
-import { getCanvas } from '@/services/canvas/canvas-accessor.js';
 import { getOsvApiService } from '@/services/osv-api/osv-api-service.js';
 import { SUPPORTED_ECOSYSTEMS } from './osv-list-ecosystems.tool.js';
-
-/** Threshold for DataCanvas spillover. */
-const CANVAS_SPILL_THRESHOLD = 200;
 
 /** Severity ordering for worstSeverity derivation. */
 const SEVERITY_RANK: Record<string, number> = {
@@ -85,7 +80,6 @@ export const osvQueryBatch = tool('osv_query_batch', {
     'Query vulnerabilities for multiple packages in one call — the primary tool for dependency audits, ' +
     'SBOM scanning, and lockfile triage. Pass an array of {name, ecosystem, version} tuples (up to 1000). ' +
     'Each entry in the response corresponds positionally to the input. ' +
-    'For 200 or more packages, results spill to a DataCanvas table (returned as canvas_id) for SQL aggregation. ' +
     'Each finding includes CVE aliases for chaining to nist-nvd-mcp-server for CVSS scoring. ' +
     'Invalid ecosystem strings are rejected before querying — call osv_list_ecosystems to validate.',
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
@@ -97,13 +91,6 @@ export const osvQueryBatch = tool('osv_query_batch', {
       .max(1000)
       .describe(
         'Packages to audit. One entry per dependency. Positional: result[i] corresponds to packages[i].',
-      ),
-    canvas_id: z
-      .string()
-      .optional()
-      .describe(
-        'Reuse an existing DataCanvas table token to append results. ' +
-          'Omit to create a new canvas. Only relevant when package count >= 200.',
       ),
   }),
 
@@ -132,13 +119,6 @@ export const osvQueryBatch = tool('osv_query_batch', {
           ),
       })
       .describe('Aggregate statistics across the full batch.'),
-    canvas_id: z
-      .string()
-      .optional()
-      .describe(
-        'DataCanvas table token. Present when the package count is >= 200 or a canvas_id was provided. ' +
-          'Use to run SQL queries across the full result set via the canvas tools.',
-      ),
   }),
 
   errors: [
@@ -212,44 +192,7 @@ export const osvQueryBatch = tool('osv_query_batch', {
       totalVulns,
     });
 
-    // DataCanvas spillover for large batches
-    const shouldSpill = input.packages.length >= CANVAS_SPILL_THRESHOLD || !!input.canvas_id;
-    let canvasId: string | undefined;
-
-    if (shouldSpill) {
-      const canvas = getCanvas();
-      if (canvas) {
-        const instance = await canvas.acquire(input.canvas_id, ctx);
-        // Register as a flat table: one row per package
-        const rows = results.map((r) => ({
-          name: r.name,
-          ecosystem: r.ecosystem,
-          version: r.version,
-          vulnerable: r.vulnerable ? 1 : 0,
-          vuln_count: r.vulnCount,
-          vuln_ids: r.vulns.map((v) => v.id).join(','),
-          cve_aliases: r.vulns.flatMap((v) => v.aliases).join(','),
-          severity_labels: r.vulns
-            .map((v) => v.severityLabel ?? '')
-            .filter(Boolean)
-            .join(','),
-          error: r.error ?? '',
-        }));
-        await instance.registerTable('osv_batch_results', rows);
-        canvasId = instance.canvasId;
-        ctx.log.info('OSV batch spilled to canvas', {
-          canvasId,
-          tableName: 'osv_batch_results',
-          rows: rows.length,
-        });
-      }
-    }
-
-    return {
-      results,
-      summary,
-      ...(canvasId ? { canvas_id: canvasId } : {}),
-    };
+    return { results, summary };
   },
 
   format: (result) => {
@@ -265,12 +208,6 @@ export const osvQueryBatch = tool('osv_query_batch', {
     lines.push(`| Errors | ${summary.errorCount} |`);
     lines.push(`| Total vulns | ${summary.totalVulns} |`);
     lines.push(`| Worst severity | ${summary.worstSeverity ?? 'N/A'} |`);
-
-    if (result.canvas_id) {
-      lines.push(
-        `\n**DataCanvas:** Results staged on canvas \`${result.canvas_id}\` in table \`osv_batch_results\`.`,
-      );
-    }
 
     const vulnerable = result.results.filter((r) => r.vulnerable);
     if (vulnerable.length > 0) {

@@ -7,7 +7,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/Version-0.1.1-blue.svg?style=flat-square)](./CHANGELOG.md) [![License](https://img.shields.io/badge/License-Apache%202.0-orange.svg?style=flat-square)](./LICENSE) [![Docker](https://img.shields.io/badge/Docker-ghcr.io-2496ED?style=flat-square&logo=docker&logoColor=white)](https://github.com/users/cyanheads/packages/container/package/osv-advisory-mcp-server) [![MCP SDK](https://img.shields.io/badge/MCP%20SDK-^1.29.0-green.svg?style=flat-square)](https://modelcontextprotocol.io/) [![npm](https://img.shields.io/npm/v/@cyanheads/osv-advisory-mcp-server?style=flat-square&logo=npm&logoColor=white)](https://www.npmjs.com/package/@cyanheads/osv-advisory-mcp-server) [![TypeScript](https://img.shields.io/badge/TypeScript-^5.9.3-3178C6.svg?style=flat-square)](https://www.typescriptlang.org/) [![Bun](https://img.shields.io/badge/Bun->=1.3.0-blueviolet.svg?style=flat-square)](https://bun.sh/)
+[![Version](https://img.shields.io/badge/Version-0.1.2-blue.svg?style=flat-square)](./CHANGELOG.md) [![License](https://img.shields.io/badge/License-Apache%202.0-orange.svg?style=flat-square)](./LICENSE) [![Docker](https://img.shields.io/badge/Docker-ghcr.io-2496ED?style=flat-square&logo=docker&logoColor=white)](https://github.com/users/cyanheads/packages/container/package/osv-advisory-mcp-server) [![MCP SDK](https://img.shields.io/badge/MCP%20SDK-^1.29.0-green.svg?style=flat-square)](https://modelcontextprotocol.io/) [![npm](https://img.shields.io/npm/v/@cyanheads/osv-advisory-mcp-server?style=flat-square&logo=npm&logoColor=white)](https://www.npmjs.com/package/@cyanheads/osv-advisory-mcp-server) [![TypeScript](https://img.shields.io/badge/TypeScript-^5.9.3-3178C6.svg?style=flat-square)](https://www.typescriptlang.org/) [![Bun](https://img.shields.io/badge/Bun->=1.3.0-blueviolet.svg?style=flat-square)](https://bun.sh/)
 
 </div>
 
@@ -57,7 +57,6 @@ The primary tool for dependency audits, SBOM scanning, and lockfile triage.
 - All ecosystems are pre-validated before the API call — a single invalid ecosystem string fails the batch (OSV API behavior)
 - Returns per-package results positionally matching the input, with `vulnerable`, `vulnCount`, `vulns` (including `aliases` and `severityLabel`), and `fixedVersions`
 - Includes aggregate summary: `totalPackages`, `vulnerableCount`, `cleanCount`, `errorCount`, `totalVulns`, `worstSeverity`
-- For ≥200 packages, results spill to a DataCanvas table (`canvas_id`) for SQL aggregation across the full set — schema: `name`, `ecosystem`, `version`, `vuln_count`, `vuln_ids`, `cve_aliases`, `severity_labels`
 
 ---
 
@@ -91,7 +90,6 @@ OSV-specific:
 - No API key required — OSV.dev is fully public, keyless, and has no published rate limit
 - Parallel single-package queries in `osv_query_batch` return full records including `aliases` (CVE IDs) that the upstream batch endpoint omits
 - Ecosystem pre-validation guards against OSV's all-or-nothing batch rejection behavior
-- DataCanvas spillover for large batch results (≥200 packages) enables SQL aggregation without context-window limits
 
 Agent-friendly output:
 
@@ -271,7 +269,6 @@ The Dockerfile defaults to HTTP transport, stateless session mode, and logs to `
 | `src/index.ts` | `createApp()` entry point — registers tools and inits services. |
 | `src/mcp-server/tools` | Tool definitions (`*.tool.ts`) — `osv_query`, `osv_query_batch`, `osv_get_vulnerability`, `osv_list_ecosystems`. |
 | `src/services/osv-api` | OSV.dev REST API service — fetch, retry, response normalization. |
-| `src/services/canvas` | DataCanvas accessor for `osv_query_batch` spillover (≥200 packages). |
 | `tests/` | Unit and integration tests mirroring `src/`. |
 
 ## Development guide

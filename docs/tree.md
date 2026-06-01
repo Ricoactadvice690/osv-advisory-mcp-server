@@ -1,6 +1,6 @@
 # osv-advisory-mcp-server - Directory Structure
 
-Generated on: 2026-05-30 13:09:56
+Generated on: 2026-06-01 03:14:36
 
 ```text
 osv-advisory-mcp-server/
@@ -122,8 +122,6 @@ osv-advisory-mcp-server/
 │   │           ├── osv-query-batch.tool.ts
 │   │           └── osv-query.tool.ts
 │   ├── services/
-│   │   ├── canvas/
-│   │   │   └── canvas-accessor.ts
 │   │   └── osv-api/
 │   │       ├── osv-api-service.ts
 │   │       └── types.ts

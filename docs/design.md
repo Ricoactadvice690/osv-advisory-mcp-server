@@ -7,7 +7,7 @@
 | Name | Description | Key Inputs | Annotations | Errors |
 |:-----|:------------|:-----------|:------------|:-------|
 | `osv_query` | Query vulnerabilities for a single package version. Returns all known vulns: OSV IDs, CVE aliases, severity (CVSS string), affected ranges, fix versions, CWE IDs. The primary "is this package version vulnerable?" tool. | `name` (package name), `ecosystem` (exact string — use `osv_list_ecosystems` to validate), `version` | `readOnlyHint: true`, `idempotentHint: true`, `openWorldHint: false` | `invalid_ecosystem` (InvalidParams) |
-| `osv_query_batch` | Batch vulnerability query over an array of `{name, ecosystem, version}` tuples — one call covers a full dependency list. Per-package results with `vulnCount`, `vulnIds`, and `aliases` (CVE IDs) for each. Routes results ≥200 packages to DataCanvas for SQL/aggregation. The differentiator for SBOM/lockfile audits. | `packages` (array of `{name, ecosystem, version}`, max 1000), `canvas_id` (optional, reuse an existing canvas) | `readOnlyHint: true`, `openWorldHint: false` | `invalid_ecosystem` (InvalidParams), `batch_too_large` (InvalidParams) |
+| `osv_query_batch` | Batch vulnerability query over an array of `{name, ecosystem, version}` tuples — one call covers a full dependency list. Per-package results with `vulnCount`, `vulnIds`, and `aliases` (CVE IDs) for each. The differentiator for SBOM/lockfile audits. | `packages` (array of `{name, ecosystem, version}`, max 1000) | `readOnlyHint: true`, `openWorldHint: false` | `invalid_ecosystem` (InvalidParams), `batch_too_large` (InvalidParams) |
 | `osv_get_vulnerability` | Fetch the full record for a single OSV ID (`GHSA-…`, `PYSEC-…`, `RUSTSEC-…`, `GO-…`, `CVE-…`). Returns: summary, details, aliases (CVE IDs), severity, affected packages/ranges, fix versions, CWE IDs, references, credits. | `id` (OSV vulnerability ID) | `readOnlyHint: true`, `idempotentHint: true`, `openWorldHint: false` | `vulnerability_not_found` (NotFound) |
 | `osv_list_ecosystems` | Return the list of supported ecosystem strings. Use before querying to validate the `ecosystem` parameter — ecosystem strings are case-sensitive exact matches. | none | `readOnlyHint: true`, `idempotentHint: true`, `openWorldHint: false` | — |
 
@@ -75,7 +75,7 @@ Framework env vars (`MCP_TRANSPORT_TYPE`, `MCP_HTTP_PORT`, `STORAGE_PROVIDER_TYP
 2. `osv_list_ecosystems` — static list, no API call; validates inputs for other tools
 3. `osv_query` — single package+version query, normalized output
 4. `osv_get_vulnerability` — full record fetch by OSV ID
-5. `osv_query_batch` — batch query with partial-success output + DataCanvas spillover for large sets
+5. `osv_query_batch` — batch query with partial-success output
 
 Each step is independently testable. Steps 3 and 4 can be developed in parallel after the service is up.
 
@@ -101,15 +101,11 @@ The `POST /v1/querybatch` response contains abbreviated vuln entries (`{ id, mod
 
 **Resolution:** `osv_query_batch` calls `POST /v1/querybatch` for the ID list, then for packages with ≤ N vulns (configurable, default: packages with any findings), it fetches full records via individual `GET /v1/vulns/{id}` calls (or `POST /v1/query` per-package) to surface `aliases`. For large batches where this would be too many follow-up calls, the tool surfaces `vulnIds` only and notes that `osv_get_vulnerability` should be called for CVE aliases on specific findings.
 
-**Simpler path:** For the first implementation, `osv_query_batch` calls `POST /v1/query` per package (not `querybatch`) in parallel with `Promise.allSettled`. This gives full records including `aliases` in one pass, avoids the ID-only limitation, and lets us use proper partial-success semantics. The upstream `querybatch` endpoint adds complexity without benefit when we need full data. If latency becomes an issue at scale, the DataCanvas path handles large sets.
+**Simpler path:** For the first implementation, `osv_query_batch` calls `POST /v1/query` per package (not `querybatch`) in parallel with `Promise.allSettled`. This gives full records including `aliases` in one pass, avoids the ID-only limitation, and lets us use proper partial-success semantics. The upstream `querybatch` endpoint adds complexity without benefit when we need full data.
 
 ### osv_list_ecosystems is static, not an API call
 
 The `/v1/vulns POST` endpoint (list by ecosystem) does not exist — live probe confirmed HTTP 200 with error body `{ code: 404, message: "The current request is not defined by this API." }`. Ecosystem enumeration is not available via the REST API. The list is maintained in the OSV schema spec and changes slowly; a static hardcoded list with a last-updated note is correct here. The tool warns that the list may drift and links to the OSV schema spec for canonical reference.
-
-### DataCanvas for large batch results
-
-When `osv_query_batch` processes ≥200 packages, the output row set is too large for a context window. The handler uses `spillover()` from `@cyanheads/mcp-ts-core/canvas` to register a DataCanvas table with one row per package (`name`, `ecosystem`, `version`, `vuln_count`, `vuln_ids`, `cve_aliases`, `severity_labels`). The inline response shows a summary (total packages scanned, vulnerable count, worst severity found) and the `canvas_id` for downstream SQL queries. Clients that don't support DataCanvas (or have `CANVAS_PROVIDER_TYPE` unset) get the full array — `ctx.core.canvas` is guarded as optional.
 
 ### Handlers throw via ctx.fail, not service factories
 
@@ -417,7 +413,7 @@ z.object({
 
 ## Known Limitations
 
-- **`aliases` field is absent in batch-only queries.** The `POST /v1/querybatch` endpoint returns only `{ id, modified }` per vuln — no `aliases`. `osv_query_batch` works around this by calling `POST /v1/query` per package in parallel (full records), sacrificing the batch endpoint's network efficiency for data completeness. If the dep count is large, the DataCanvas path handles the output size; network calls are still N parallel single-queries.
+- **`aliases` field is absent in batch-only queries.** The `POST /v1/querybatch` endpoint returns only `{ id, modified }` per vuln — no `aliases`. `osv_query_batch` works around this by calling `POST /v1/query` per package in parallel (full records), sacrificing the batch endpoint's network efficiency for data completeness.
 - **No ecosystem listing via API.** `POST /v1/vulns` with an ecosystem filter does not exist (live-confirmed: returns `{ code: 404, message: "The current request is not defined by this API." }`). `osv_list_ecosystems` returns a static hardcoded list that may drift from the live supported set.
 - **Severity absent for some records.** Non-GHSA records (e.g., `PYSEC-`, `RUSTSEC-`) often lack `database_specific.severity` and may have no `severity` array. `severityLabel` will be null in those cases.
 - **No CVSS base score direct field.** CVSS scores are in vector string form only (`"CVSS:3.1/AV:N/AC:L/..."`) — the service layer must parse the base score for severity derivation.
